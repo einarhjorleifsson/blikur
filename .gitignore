@@ -1,3 +1,10 @@
 .Rproj.user
 .Rhistory
 .RData
+_site
+_splatter/_site
+*.html
+*.png
+*.js
+*.tiff
+*.css

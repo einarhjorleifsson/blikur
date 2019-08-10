@@ -1,0 +1,69 @@
+---
+title: "Ocean depth in rayshader"
+description: |
+  Recently in the R-world there has been some commotion about the rayshader-package. Took it for a testdrive today, using the MRI ocean depth data and was impressed with its potentialities. This post shows some limited code, but fully reproducable code to download and import the data and get a rayshader visualization of the Kolbeinsey ridge, inluding a 3-dimensional user interactive view.
+author:
+  - name: einar.hjorleifsson
+    url: {}
+date: 01-26-2019
+output:
+  distill::distill_article:
+    self_contained: false
+---
+
+```{r, echo = FALSE, eval = FALSE}
+#https://github.com/yonghah/rayshader-overlay/blob/master/notebook/Seoul_Metro.Rmd
+```
+
+
+```{r setup, echo = FALSE, message=FALSE}
+library(rgl)
+knitr::opts_chunk$set(message = FALSE)
+knitr::knit_hooks$set(webgl = hook_webgl)
+```
+
+## Packages needed
+
+I used the developmental version of [rayshader](https://github.com/tylermorganwall/rayshader) by calling:
+
+
+```{r, eval = FALSE}
+devtools::install_github("tylermorganwall/rayshader")
+```
+
+We seed our session by loading this package and the rastts
+```{r}
+library(raster)
+library(tidyverse)
+library(rayshader)
+# https://www.hafogvatn.is/is/rannsoknir/kortlagning-hafsbotnsins/kolbeinseyjarhryggur-og-nagrenni
+fil <- "https://www.hafogvatn.is/static/files/kolbeinseyjahryggur_a2002_a2004_20m.tiff"
+download.file(fil, destfile = "r.tiff")
+r <- raster::raster("r.tiff")
+r
+e <- extent(1700000, 1732000, 504000, 556000)
+r1 <- crop(r, e)
+m <- matrix(raster::extract(r1, raster::extent(r1), buffer = 1000),
+            nrow = ncol(r1), ncol = nrow(r1))
+m %>% 
+  sphere_shade(texture = "imhof2") %>% 
+  plot_map()
+```
+
+
+```{r, webgl = TRUE, eval = TRUE, fig.width = 11, fig.height = 8}
+r2 <- aggregate(r1, fact = 4, fun = mean)
+#e <- extent(1705000, 1719000, 530000, 543000)
+#e <- extent(1703000, 1722000, 528000, 545000)
+#r <- crop(r, e)
+m <- matrix(raster::extract(r2, raster::extent(r2), buffer = 1000),
+            nrow = ncol(r2), ncol = nrow(r2))
+raymat = ray_shade(m, lambert = TRUE)
+m %>%
+  sphere_shade(texture = "imhof2") %>%
+  add_shadow(raymat, 0.7) %>%
+  plot_3d(m, zscale = 20, theta = 0, phi = 10, zoom = 0.5)
+
+#render_label(m, x = 350, y = 240, z = 250, zscale = 40, 
+#            text = "Kolbeinsey", textsize = 2, linewidth = 5)
+```

@@ -1,0 +1,75 @@
+---
+title: "Interpolation"
+description: |
+  A short description of the post.
+author:
+  - name: einar.hjorleifsson
+    url: {}
+date: 02-03-2019
+output:
+  distill::distill_article:
+    self_contained: false
+draft: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r}
+library(zoo)
+library(sf)
+library(lubridate)
+library(tidyverse)
+library(mar)
+con <- connect_mar()
+vms <-
+  vms(con, t1 = "2019-01-07", t2 = "2019-01-08") %>% 
+  collect(n = Inf) %>% 
+  filter(mobileid == 101109,
+         hour(time) < 14) %>% 
+  select(vid, time, lon, lat) %>% 
+  distinct() %>% 
+  mutate(interpolate = FALSE)
+
+track <- vms
+second(track$time) <- 0
+range(track$time)
+
+track <- 
+  tibble(time = seq.POSIXt(min(track$time), 
+                           max(track$time), 
+                           # every second
+                           by = 60)) %>% 
+  left_join(track) %>% 
+  mutate(interpolate = replace_na(interpolate, TRUE),
+         lon = na.approx(lon, na.rm = FALSE),
+         lat = zoo::na.approx(lat, na.rm = FALSE))
+
+xlim <- range(track$lon)
+ylim <- range(track$lat)
+track %>% 
+  ggplot() +
+  geom_polygon(data = geo::bisland, aes(lon, lat), fill = "grey") +
+  geom_point(aes(lon, lat, colour = interpolate), size = 0.5) +
+  scale_color_brewer(palette = "Set1") +
+  coord_quickmap(xlim = xlim, ylim = ylim) +
+  theme(legend.position = c(0.5, 0.5))
+
+
+tmp <- 
+  vms %>% 
+  st_as_sf(coords = c("lon", "lat"),
+           crs = 4326) %>% 
+  summarise(do_union = FALSE) %>% 
+  st_cast("LINESTRING") %>% 
+  st_segmentize(units::set_units(10, m))
+track %>% 
+  ggplot() +
+  #geom_polygon(data = geo::bisland, aes(lon, lat), fill = "grey") +
+  geom_sf(data = tmp, colour = "yellow", lwd = 2) +
+  geom_point(aes(lon, lat, colour = interpolate), size = 0.5) +
+  scale_color_brewer(palette = "Set1") +
+  coord_sf() 
+```
+
